@@ -188,7 +188,7 @@ async def main():
 
     with open("index.json", "w") as f:
         logger.debug("Saving index.json")
-        json.dump(data_finished, f)
+        json.dump(data_finished, f, indent=2, sort_keys=True)
 
 
 if __name__ == '__main__':
