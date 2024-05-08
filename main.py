@@ -60,6 +60,28 @@ async def fetch_page(session, url):
         return await response.text()
 
 
+def get_body_text(soup: BeautifulSoup):
+    # try and find a meta description tag
+    meta_desc = soup.find("meta", attrs={"name": "description"})
+    if meta_desc is not None:
+        return meta_desc.get("content")
+
+    # fall back to main tag
+    if soup.find("main") is not None:
+        return soup.find("main").text
+
+    # try and index h1, h2, h3, h4, h5, h6 and p
+    body_text = ""
+    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"]):
+        body_text += tag.text + " "
+
+    if body_text != "":
+        return body_text
+
+    # fall back to body tag
+    return soup.find("body").text
+
+
 async def index_page(url: str):
     parsed_url = urlparse(url)
     if "nekoweb.org" not in parsed_url.netloc:
@@ -82,7 +104,7 @@ async def index_page(url: str):
         logger.debug("Body of %s is %s" % (url, soup.find("body").text))
         data.extend([{
             "title": soup.title.string,
-            "body": soup.find("body").text,
+            "body": get_body_text(soup),
             "url": url
         }])
 
@@ -123,6 +145,7 @@ async def main():
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
         await index_page(i)
+
 
 if __name__ == '__main__':
     logger.debug("Starting indexer")
