@@ -9,3 +9,4 @@ logs.log
 # Other
 /.venv/
 /.idea/
+/not_nekoweb.json
