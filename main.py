@@ -9,6 +9,8 @@ import aiohttp
 
 from urllib.parse import urlparse, urlunparse
 
+DEV_MODE = True  # Set this to false in production
+
 logger = logging.getLogger("Akatsuki")
 logger.setLevel(logging.DEBUG)
 log_console = logging.StreamHandler()
@@ -84,9 +86,15 @@ def get_body_text(soup: BeautifulSoup):
 
 async def index_page(url: str):
     parsed_url = urlparse(url)
-    if "nekoweb.org" not in parsed_url.netloc:
-        logger.warning("Skipping %s as it's not a nekoweb org" % url)
-        return
+    if DEV_MODE:
+        if parsed_url.netloc != "akatsuki.nekoweb.org":
+            logger.warning("Skipping %s as it's not on the Akatsuki domain" % url)
+            return
+
+    else:
+        if "nekoweb.org" not in parsed_url.netloc:
+            logger.warning("Skipping %s as it's not a nekoweb org" % url)
+            return
 
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
     async with aiohttp.ClientSession() as session:
@@ -102,10 +110,27 @@ async def index_page(url: str):
 
         logger.debug("Title of %s is %s" % (url, soup.title.string))
         logger.debug("Body of %s is %s" % (url, soup.find("body").text))
+
+        links_to = []
+        for link in soup.find_all('a'):
+
+            link_url = link.get("href")
+            if not is_link(link_url):
+                continue
+
+            link_parsed = urlparse(get_full_link(url, link_url))
+            if link_parsed.netloc == parsed_url.netloc:
+                continue  # Remove links to self
+
+            logger.debug("Adding link from %s to %s" % (url, get_full_link(orig_url, link_url)))
+            links_to.append(get_full_link(orig_url, link_url))
+
         data.extend([{
             "title": soup.title.string,
             "body": get_body_text(soup),
-            "url": url
+            "url": url,
+            "links_to": links_to,
+            "links_from": []  # Generate this later
         }])
 
         for link in soup.find_all('a'):
@@ -132,15 +157,16 @@ async def index_page(url: str):
 
 async def main():
     to_search = [
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=personal",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=art",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=blog",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=games",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=trans",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cat",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
-        "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=personal",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=art",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=blog",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=games",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=trans",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cat",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
+        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
+        "https://akatsuki.nekoweb.org/"
     ]
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
