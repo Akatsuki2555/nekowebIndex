@@ -9,10 +9,17 @@ def main():
     for i in data:
         if i['url'].startswith("https://nekoweb.org"):
             continue
+        links_to = []
+        for j in i["links_to"]:
+            if j not in links_to:
+                links_to.append(j)
+
         new_data.append({
             "title": i["title"],
             "body": i["body"].replace("\n", ""),
-            "url": i["url"]
+            "url": i["url"],
+            "links_from": i["links_from"],
+            "links_to": links_to
         })
 
     with open("new_index.json", "w") as outfile:
