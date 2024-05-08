@@ -112,7 +112,7 @@ async def index_page(url: str):
                     logger.warning("Skipping %s as it's a non OK response" % url)
                     return
 
-                if res.headers["X-Powered-By"] != "Nekoweb":
+                if "X-Powered-By" not in res.headers or res.headers["X-Powered-By"] != "Nekoweb":
                     logger.warning("Skipping %s as it's a Nekoweb site" % url)
                     not_nekoweb.append(parsed_url.netloc)
                     with open("not_nekoweb.json", "w") as f:
