@@ -19,7 +19,7 @@ log_console = logging.StreamHandler()
 log_file = logging.FileHandler("logs.log")
 log_console.setFormatter(logging.Formatter('%(levelname)s %(message)s'))
 log_file.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(message)s'))
-log_console.setLevel(logging.DEBUG)
+log_console.setLevel(logging.INFO)
 log_file.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
 logger.addHandler(log_file)
@@ -104,7 +104,7 @@ async def index_page(url: str):
 
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
     try:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session:
             session.headers.add("User-Agent", "Akatsuki-Spider-Bot/1.0")
             logger.debug("Indexing %s" % url)
             async with session.get(url) as res:
@@ -166,20 +166,15 @@ async def index_page(url: str):
                     logger.error("An error occured while trying to index " + get_full_link(orig_url, link_url))
     except asyncio.TimeoutError:
         logger.error("Timeout while trying to fetch %s" % url)
+        logger.warning('Treating %s as a non nekoweb site' % url)
+        not_nekoweb.append(parsed_url.netloc)
+        with open("not_nekoweb.json", "w") as f:
+            json.dump(not_nekoweb, f)
 
 
 async def main():
     to_search = [
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=personal",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=art",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=blog",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=games",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=trans",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cat",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
-        # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
-        "https://akatsuki.nekoweb.org/"
+        "https://nekoweb.org/",
     ]
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
