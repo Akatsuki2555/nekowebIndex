@@ -63,25 +63,22 @@ async def fetch_page(session, url):
 
 
 def get_body_text(soup: BeautifulSoup):
-    # try and find a meta description tag
+    content = ""
     meta_desc = soup.find("meta", attrs={"name": "description"})
     if meta_desc is not None:
-        return meta_desc.get("content")
+        content += meta_desc.get("content")
 
-    # fall back to main tag
     if soup.find("main") is not None:
-        return soup.find("main").text
+        content += soup.find("main").text
+    else:
+        for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"]):
+            content += tag.text + " "
 
-    # try and index h1, h2, h3, h4, h5, h6 and p
-    body_text = ""
-    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "p"]):
-        body_text += tag.text + " "
-
-    if body_text != "":
-        return body_text
-
-    # fall back to body tag
-    return soup.find("body").text
+    if content != "":
+        return content
+    else:
+        logger.error("Page %s has no body text" % soup.title.string)
+        return soup.find("body").text
 
 
 async def index_page(url: str):
