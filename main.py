@@ -11,6 +11,8 @@ from urllib.parse import urlparse, urlunparse
 
 DEV_MODE = True  # Set this to false in production
 
+os.unlink("logs.log")
+
 logger = logging.getLogger("Akatsuki")
 logger.setLevel(logging.DEBUG)
 log_console = logging.StreamHandler()
@@ -84,7 +86,7 @@ def get_body_text(soup: BeautifulSoup):
 async def index_page(url: str):
     parsed_url = urlparse(url)
     if DEV_MODE:
-        if parsed_url.netloc != "akatsuki.nekoweb.org":
+        if parsed_url.netloc != "akatsuki.nekoweb.org" and parsed_url.netloc != "bee.nekoweb.org":
             logger.warning("Skipping %s as it's not on the Akatsuki domain" % url)
             return
 
@@ -95,6 +97,7 @@ async def index_page(url: str):
 
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
     async with aiohttp.ClientSession() as session:
+        session.headers.add("User-Agent", "Akatsuki-Spider-Bot/1.0")
         logger.debug("Indexing %s" % url)
         async with session.get(url) as res:
             if res.status != 200:
@@ -144,10 +147,6 @@ async def index_page(url: str):
             try:
                 logger.debug("Recursively indexing page %s " % get_full_link(orig_url, link_url))
                 await index_page(get_full_link(orig_url, link_url))
-
-                with open("index.json", "w") as f:
-                    logger.debug("Saving index.json")
-                    json.dump(data, f)
             except Exception:
                 logger.error("An error occured while trying to index " + get_full_link(orig_url, link_url))
 
@@ -163,11 +162,26 @@ async def main():
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
-        "https://akatsuki.nekoweb.org/"
+        "https://akatsuki.nekoweb.org/",
+        "https://bee.nekoweb.org/"
     ]
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
         await index_page(i)
+
+    logger.debug("Finished indexing, waiting 5 seconds before starting links_from generation")
+    await asyncio.sleep(5)
+    logger.debug("Starting links_from generation")
+    for i in data:
+        for j in i["links_to"]:
+            for k in data:
+                if k["url"] == j:
+                    logger.debug("Adding link from %s to %s" % (k["url"], i["url"]))
+                    k["links_from"].append(i["url"])
+
+    with open("index.json", "w") as f:
+        logger.debug("Saving index.json")
+        json.dump(data, f)
 
 
 if __name__ == '__main__':
