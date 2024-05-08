@@ -162,33 +162,60 @@ async def main():
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
-        "https://akatsuki.nekoweb.org/",
-        "https://bee.nekoweb.org/"
     ]
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
         await index_page(i)
 
-    with open("index.json", "w") as f:
-        logger.debug("Saving index.json")
-        json.dump(data, f)
-
     logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
     await asyncio.sleep(1)
-    with open("index.json", "r") as f:
-        data_finished = json.load(f)
 
-    logger.debug("Starting links_from generation")
-    for i in data_finished:
+    global data
+
+    new_data = []
+    for i in data:
+        links_from = []
+        for j in data:
+            for k in j["links_to"]:
+                link_to_parsed = urlparse(k)
+                url_parsed = urlparse(i["url"])
+
+                if link_to_parsed.netloc == url_parsed.netloc and link_to_parsed.path == url_parsed.path:
+                    logger.debug("Adding link from: " + j["url"] + " to: " + i["url"])
+                    links_from.append(j["url"])
+
+        i["links_from"] = links_from
+        new_data.append(i)
+
+    data = new_data
+
+    new_data = []
+    for i in data:
+        url_list_from = []
+        for j in i["links_from"]:
+            j = j.rstrip('/')
+            if j not in url_list_from:
+                url_list_from.append(j)
+            else:
+                logger.debug("Removing duplicate link: " + j + " from: " + i["url"])
+
+        url_parsed_to = []
         for j in i["links_to"]:
-            for k in data_finished:
-                if k["url"] == j:
-                    logger.info("Adding link from %s to %s" % (k["url"], i["url"]))
-                    k["links_from"].append(i["url"])
+            j = j.rstrip('/')
+            if j not in url_parsed_to:
+                url_parsed_to.append(j)
+            else:
+                logger.debug("Removing duplicate link: " + j + " from: " + i["url"])
+
+        i["links_from"] = url_list_from
+        i["links_to"] = url_parsed_to
+        new_data.append(i)
+
+    data = new_data
 
     with open("index.json", "w") as f:
         logger.debug("Saving index.json")
-        json.dump(data_finished, f, indent=2, sort_keys=True)
+        json.dump(data, f, indent=2, sort_keys=True)
 
 
 if __name__ == '__main__':
