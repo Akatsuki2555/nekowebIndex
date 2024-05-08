@@ -1,0 +1,11 @@
+
+# Index files
+index.json
+new_index.json
+
+# Logs
+logs.log
+
+# Other
+/.venv/
+/.idea/
