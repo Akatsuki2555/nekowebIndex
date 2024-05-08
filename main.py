@@ -19,7 +19,7 @@ log_console = logging.StreamHandler()
 log_file = logging.FileHandler("logs.log")
 log_console.setFormatter(logging.Formatter('%(levelname)s %(message)s'))
 log_file.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(message)s'))
-log_console.setLevel(logging.INFO)
+log_console.setLevel(logging.DEBUG)
 log_file.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
 logger.addHandler(log_file)
@@ -169,19 +169,26 @@ async def main():
     for i in to_search:
         await index_page(i)
 
-    logger.debug("Finished indexing, waiting 5 seconds before starting links_from generation")
-    await asyncio.sleep(5)
+    with open("index.json", "w") as f:
+        logger.debug("Saving index.json")
+        json.dump(data, f)
+
+    logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
+    await asyncio.sleep(1)
+    with open("index.json", "r") as f:
+        data_finished = json.load(f)
+
     logger.debug("Starting links_from generation")
-    for i in data:
+    for i in data_finished:
         for j in i["links_to"]:
-            for k in data:
+            for k in data_finished:
                 if k["url"] == j:
-                    logger.debug("Adding link from %s to %s" % (k["url"], i["url"]))
+                    logger.info("Adding link from %s to %s" % (k["url"], i["url"]))
                     k["links_from"].append(i["url"])
 
     with open("index.json", "w") as f:
         logger.debug("Saving index.json")
-        json.dump(data, f)
+        json.dump(data_finished, f)
 
 
 if __name__ == '__main__':
