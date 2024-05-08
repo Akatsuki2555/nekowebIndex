@@ -9,7 +9,7 @@ import aiohttp
 
 from urllib.parse import urlparse, urlunparse
 
-DEV_MODE = True  # Set this to false in production
+DEV_MODE = False  # Set this to false in production
 
 os.unlink("logs.log")
 
@@ -83,6 +83,13 @@ def get_body_text(soup: BeautifulSoup):
         return soup.find("body").text
 
 
+not_nekoweb = []
+
+if os.path.exists("not_nekoweb.json"):
+    with open("not_nekoweb.json", "r") as f:
+        not_nekoweb = json.load(f)
+
+
 async def index_page(url: str):
     parsed_url = urlparse(url)
     if DEV_MODE:
@@ -91,64 +98,74 @@ async def index_page(url: str):
             return
 
     else:
-        if "nekoweb.org" not in parsed_url.netloc:
-            logger.warning("Skipping %s as it's not a nekoweb org" % url)
+        if parsed_url.netloc in not_nekoweb:
+            logger.warning("Skipping %s as it's already confirmed to not be nekoweb" % url)
             return
 
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
-    async with aiohttp.ClientSession() as session:
-        session.headers.add("User-Agent", "Akatsuki-Spider-Bot/1.0")
-        logger.debug("Indexing %s" % url)
-        async with session.get(url) as res:
-            if res.status != 200:
-                logger.warning("Skipping %s as it's a non-200 response" % url)
-                return
+    try:
+        async with aiohttp.ClientSession() as session:
+            session.headers.add("User-Agent", "Akatsuki-Spider-Bot/1.0")
+            logger.debug("Indexing %s" % url)
+            async with session.get(url) as res:
+                if not res.ok:
+                    logger.warning("Skipping %s as it's a non OK response" % url)
+                    return
 
-            text = await res.text()
+                if res.headers["X-Powered-By"] != "Nekoweb":
+                    logger.warning("Skipping %s as it's a Nekoweb site" % url)
+                    not_nekoweb.append(parsed_url.netloc)
+                    with open("not_nekoweb.json", "w") as f:
+                        json.dump(not_nekoweb, f)
+                    return
 
-        soup = BeautifulSoup(text, 'html.parser')
+                text = await res.text()
 
-        logger.debug("Title of %s is %s" % (url, soup.title.string))
-        logger.debug("Body of %s is %s" % (url, soup.find("body").text))
+            soup = BeautifulSoup(text, 'html.parser')
 
-        links_to = []
-        for link in soup.find_all('a'):
+            logger.debug("Title of %s is %s" % (url, soup.title.string))
+            logger.debug("Body of %s is %s" % (url, soup.find("body").text))
 
-            link_url = link.get("href")
-            if not is_link(link_url):
-                continue
+            links_to = []
+            for link in soup.find_all('a'):
 
-            link_parsed = urlparse(get_full_link(url, link_url))
-            if link_parsed.netloc == parsed_url.netloc:
-                continue  # Remove links to self
+                link_url = link.get("href")
+                if not is_link(link_url):
+                    continue
 
-            logger.debug("Adding link from %s to %s" % (url, get_full_link(orig_url, link_url)))
-            links_to.append(get_full_link(orig_url, link_url))
+                link_parsed = urlparse(get_full_link(url, link_url))
+                if link_parsed.netloc == parsed_url.netloc:
+                    continue  # Remove links to self
 
-        data.extend([{
-            "title": soup.title.string,
-            "body": get_body_text(soup),
-            "url": url,
-            "links_to": links_to,
-            "links_from": []  # Generate this later
-        }])
+                logger.debug("Adding link from %s to %s" % (url, get_full_link(orig_url, link_url)))
+                links_to.append(get_full_link(orig_url, link_url))
 
-        for link in soup.find_all('a'):
-            link_url = link.get("href")
-            logger.debug("Link with text %s has URL %s" % (link.text, link_url))
-            if not is_link(link_url):
-                logger.debug("Link %s is not a link" % link_url)
-                continue
+            data.extend([{
+                "title": soup.title.string,
+                "body": get_body_text(soup),
+                "url": url,
+                "links_to": links_to,
+                "links_from": []  # Generate this later
+            }])
 
-            if any(url2["url"] == get_full_link(orig_url, link_url) for url2 in data):
-                logger.debug("Link %s already indexed" % link_url)
-                continue
+            for link in soup.find_all('a'):
+                link_url = link.get("href")
+                logger.debug("Link with text %s has URL %s" % (link.text, link_url))
+                if not is_link(link_url):
+                    logger.debug("Link %s is not a link" % link_url)
+                    continue
 
-            try:
-                logger.debug("Recursively indexing page %s " % get_full_link(orig_url, link_url))
-                await index_page(get_full_link(orig_url, link_url))
-            except Exception:
-                logger.error("An error occured while trying to index " + get_full_link(orig_url, link_url))
+                if any(url2["url"] == get_full_link(orig_url, link_url) for url2 in data):
+                    logger.debug("Link %s already indexed" % link_url)
+                    continue
+
+                try:
+                    logger.debug("Recursively indexing page %s " % get_full_link(orig_url, link_url))
+                    await index_page(get_full_link(orig_url, link_url))
+                except Exception:
+                    logger.error("An error occured while trying to index " + get_full_link(orig_url, link_url))
+    except asyncio.TimeoutError:
+        logger.error("Timeout while trying to fetch %s" % url)
 
 
 async def main():
@@ -162,6 +179,7 @@ async def main():
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=furry",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=gay",
         # "https://nekoweb.org/explore?page=1&sort=lastupd&by=tag&q=cute"
+        "https://akatsuki.nekoweb.org/"
     ]
     # await index_page("https://akatsuki.nekoweb.org/")
     for i in to_search:
