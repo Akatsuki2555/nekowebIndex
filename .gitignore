@@ -10,3 +10,4 @@ logs.log
 /.venv/
 /.idea/
 /not_nekoweb.json
+__pycache__/
