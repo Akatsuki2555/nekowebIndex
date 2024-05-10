@@ -105,7 +105,7 @@ async def index_page(url: str):
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
     try:
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session:
-            session.headers.add("User-Agent", "Akatsuki-Spider-Bot/1.0")
+            session.headers.add("User-Agent", "AkatsukiNekowebBot/1.0")
             logger.debug("Indexing %s" % url)
             async with session.get(url) as res:
                 if not res.ok:
