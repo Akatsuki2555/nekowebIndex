@@ -1,8 +1,12 @@
+import asyncio
 import json
 from urllib.parse import urlparse
+from robots_test import check_robots
 
+disallowed_links = []
+allowed_links = []
 
-def main():
+async def main():
     with open("index.json", "r") as data:
         data = json.load(data)
 
@@ -10,9 +14,19 @@ def main():
     new_data = []
     for i in data:
         index += 1
-        print("Processing link %d/%d        " % (index, len(data)), end="\r")
+        print("Processing link %d/%d                         " % (index, len(data)), end="\r")
         parsed_url = urlparse(i.get("url", "https://nekoweb.org"))
         if parsed_url.netloc == "nekoweb.org" or parsed_url.netloc == "www.nekoweb.org":
+            continue
+
+        if parsed_url.netloc not in allowed_links and parsed_url.netloc not in disallowed_links:
+            print()
+            if await check_robots(parsed_url.netloc):
+                allowed_links.append(parsed_url.netloc)
+            else:
+                disallowed_links.append(parsed_url.netloc)
+
+        if parsed_url.netloc in disallowed_links:
             continue
 
         links_to = []
@@ -48,9 +62,13 @@ def main():
             "links_to": links_to
         })
 
+    print()
+    print("Finished.")
+    print("%d links were skipped." % len(disallowed_links))
+
     with open("new_index.json", "w") as outfile:
         json.dump(new_data, outfile)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
