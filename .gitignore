@@ -11,3 +11,4 @@ logs.log
 /.idea/
 /not_nekoweb.json
 __pycache__/
+/index.db
