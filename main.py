@@ -199,25 +199,25 @@ async def index_page(url: str):
 
 
 async def main():
-    # db_init()
-    #
-    # # to_search = [
-    # #     "https://nekoweb.org/",
-    # # ]
-    # await index_page("https://akatsuki.nekoweb.org/")
-    # # for i in to_search:
-    # #     await index_page(i)
-    #
-    # logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
-    # await asyncio.sleep(1)
-    #
-    # cur.execute("select * from `index`")
-    # for i in cur.fetchall():
-    #     cur.execute("select * from links_to where link=?", (i[1],))
-    #     for j in cur.fetchall():
-    #         cur.execute("insert into links_from(indexId, url, link) values(?, ?, ?)", (i[0], i[1], j[2]))
-    #
-    # db.commit()
+    db_init()
+
+    # to_search = [
+    #     "https://nekoweb.org/",
+    # ]
+    await index_page("https://akatsuki.nekoweb.org/")
+    # for i in to_search:
+    #     await index_page(i)
+
+    logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
+    await asyncio.sleep(1)
+
+    cur.execute("select * from `index`")
+    for i in cur.fetchall():
+        cur.execute("select * from links_to where link=?", (i[1],))
+        for j in cur.fetchall():
+            cur.execute("insert into links_from(indexId, url, link) values(?, ?, ?)", (i[0], i[1], j[2]))
+
+    db.commit()
 
     with open("index.json", "w") as f:
         logger.debug("Saving index.json")
