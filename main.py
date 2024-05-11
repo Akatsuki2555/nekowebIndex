@@ -10,7 +10,7 @@ import sqlite3
 
 from urllib.parse import urlparse, urlunparse
 
-DEV_MODE = True  # Set this to false in production
+DEV_MODE = False  # Set this to false in production
 
 os.unlink("logs.log")
 
