@@ -33,10 +33,10 @@ def is_link(url: str) -> bool:
     if url is None:
         return False
     if url.startswith('mailto'):
-        logger.info("Skipping %s as it's a mail link" % url)
+        logger.debug("Skipping %s as it's a mail link" % url)
         return False
     if url.startswith("tel"):
-        logger.info("Skipping %s as it's a phone link" % url)
+        logger.debug("Skipping %s as it's a phone link" % url)
         return False
 
     return True
@@ -140,7 +140,7 @@ async def index_page(url: str):
 
     orig_url = urlunparse((parsed_url.scheme, parsed_url.netloc, '', '', '', ''))
     try:
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=1)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=3)) as session:
             session.headers.add("User-Agent", "AkatsukiNekowebBot/1.0")
             logger.debug("Indexing %s" % url)
             async with session.get(url) as res:
@@ -150,9 +150,6 @@ async def index_page(url: str):
 
                 if "X-Powered-By" not in res.headers or res.headers["X-Powered-By"] != "Nekoweb":
                     logger.warning("Skipping %s as it's a Nekoweb site" % url)
-                    # not_nekoweb.append(parsed_url.netloc)
-                    # with open("not_nekoweb.json", "w") as f:
-                    #     json.dump(not_nekoweb, f)
                     db_add_to_not_nekoweb(parsed_url.netloc)
                     return
 
@@ -176,13 +173,6 @@ async def index_page(url: str):
                 logger.debug("Adding link from %s to %s" % (url, get_full_link(orig_url, link_url)))
                 links_to.append(get_full_link(orig_url, link_url))
 
-            # data.extend([{
-            #     "title": soup.title.string,
-            #     "body": get_body_text(soup),
-            #     "url": url,
-            #     "links_to": links_to,
-            #     "links_from": []  # Generate this later
-            # }])
             db_add_data(url, soup.title.string, get_body_text(soup), [], links_to)
 
             for link in soup.find_all('a'):
@@ -192,9 +182,6 @@ async def index_page(url: str):
                     logger.debug("Link %s is not a link" % link_url)
                     continue
 
-                # if any(url2["url"] == get_full_link(orig_url, link_url) for url2 in data):
-                #     logger.debug("Link %s already indexed" % link_url)
-                #     continue
                 cur.execute("select * from `index` where url=?", (get_full_link(orig_url, link_url),))
                 if cur.fetchone() is not None:
                     logger.debug("Link %s already indexed" % link_url)
@@ -208,60 +195,29 @@ async def index_page(url: str):
     except asyncio.TimeoutError:
         logger.error("Timeout while trying to fetch %s" % url)
         logger.warning('Treating %s as a non nekoweb site' % url)
-        # not_nekoweb.append(parsed_url.netloc)
-        # with open("not_nekoweb.json", "w") as f:
-        #     json.dump(not_nekoweb, f)
         db_add_to_not_nekoweb(parsed_url.netloc)
 
 
 async def main():
-    db_init()
-
-    # to_search = [
-    #     "https://nekoweb.org/",
-    # ]
-    await index_page("https://akatsuki.nekoweb.org/")
-    # for i in to_search:
-    #     await index_page(i)
-
-    logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
-    await asyncio.sleep(1)
-
-    cur.execute("select * from `index`")
-    for i in cur.fetchall():
-        links_from = []
-        cur.execute("select * from links_to where url=?", (i[1],))
-        for j in cur.fetchall():
-            cur.execute("select * from `index` where url=?", (j[2],))
-            for k in cur.fetchall():
-                links_from.append(k[1])
-        for j in links_from:
-            cur.execute("insert into links_from(indexId, url, link) values(?, ?, ?)", (i[0], i[1], j))
-
-    cur.execute("select * from `index`")
-    for i in cur.fetchall():
-        url_list_from = []
-        cur.execute("select * from links_from where url=?", (i[1],))
-        for j in cur.fetchall():
-            j = j[2].rstrip('/')
-            if j not in url_list_from:
-                url_list_from.append(j)
-            else:
-                logger.debug("Removing duplicate link: " + j + " from: " + i[1])
-
-        url_parsed_to = []
-        cur.execute("select * from links_to where url=?", (i[1],))
-        for j in cur.fetchall():
-            j = j[2].rstrip('/')
-            if j not in url_parsed_to:
-                url_parsed_to.append(j)
-            else:
-                logger.debug("Removing duplicate link: " + j + " from: " + i[1])
-
-        cur.execute("update links_from set link=? where url=?", (json.dumps(url_list_from), i[1]))
-        cur.execute("update links_to set link=? where url=?", (json.dumps(url_parsed_to), i[1]))
-
-    db.commit()
+    # db_init()
+    #
+    # # to_search = [
+    # #     "https://nekoweb.org/",
+    # # ]
+    # await index_page("https://akatsuki.nekoweb.org/")
+    # # for i in to_search:
+    # #     await index_page(i)
+    #
+    # logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
+    # await asyncio.sleep(1)
+    #
+    # cur.execute("select * from `index`")
+    # for i in cur.fetchall():
+    #     cur.execute("select * from links_to where link=?", (i[1],))
+    #     for j in cur.fetchall():
+    #         cur.execute("insert into links_from(indexId, url, link) values(?, ?, ?)", (i[0], i[1], j[2]))
+    #
+    # db.commit()
 
     with open("index.json", "w") as f:
         logger.debug("Saving index.json")
@@ -271,10 +227,12 @@ async def main():
             links_from = []
             cur.execute("select * from links_from where url=?", (i[1],))
             for j in cur.fetchall():
-                links_from.append(j[2])
+                links_from.append(j[3])
+
+            links_to = []
             cur.execute("select * from links_to where url=?", (i[1],))
             for j in cur.fetchall():
-                links_to = j[2]
+                links_to.append(j[3])
 
             temp_data.append({
                 "title": i[2],

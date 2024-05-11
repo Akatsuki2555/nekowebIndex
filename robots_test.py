@@ -12,7 +12,8 @@ async def check_if_exists(url):
 
 
 async def check_robots(url):
-    url_parsed = parse.urlunparse(("https", url, "robots.txt", "", "", ""))
+    url_parsed = parse.urlparse(url)
+    url_parsed = parse.urlunparse(("https", url_parsed.netloc, url_parsed.path, "", ""))
     if not await check_if_exists(url_parsed):
         return True
     rp = robotparser.RobotFileParser()
