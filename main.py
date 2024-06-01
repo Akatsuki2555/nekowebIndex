@@ -1,14 +1,12 @@
 import asyncio
 import json
-import os.path
-
-from bs4 import BeautifulSoup
-import requests
 import logging
-import aiohttp
+import os.path
 import sqlite3
-
 from urllib.parse import urlparse, urlunparse
+
+import aiohttp
+from bs4 import BeautifulSoup
 
 DEV_MODE = False  # Set this to false in production
 
@@ -134,7 +132,7 @@ async def index_page(url: str):
             return
 
     else:
-        if parsed_url.netloc not in db_is_nekoweb(parsed_url.netloc):
+        if not db_is_nekoweb(parsed_url.netloc):
             logger.warning("Skipping %s as it's already confirmed to not be nekoweb" % url)
             return
 
@@ -201,12 +199,12 @@ async def index_page(url: str):
 async def main():
     db_init()
 
-    # to_search = [
-    #     "https://nekoweb.org/",
-    # ]
-    await index_page("https://akatsuki.nekoweb.org/")
-    # for i in to_search:
-    #     await index_page(i)
+    to_search = [
+        "https://nekoweb.org/",
+    ]
+    # await index_page("https://akatsuki.nekoweb.org/")
+    for i in to_search:
+        await index_page(i)
 
     logger.debug("Finished indexing, waiting 1 second before starting links_from generation")
     await asyncio.sleep(1)

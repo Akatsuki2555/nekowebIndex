@@ -12,5 +12,6 @@ if __name__ == "__main__":
         if parsed_url.netloc not in different_websites:
             different_websites.append(parsed_url.netloc)
 
-    for i in different_websites:
-        print(i)
+    with open("web_list.json", "w") as f:
+        json.dump(different_websites, f, indent=4, sort_keys=True)
+
