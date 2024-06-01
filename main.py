@@ -120,8 +120,11 @@ def db_add_to_not_nekoweb(url: str):
 
 
 def db_is_nekoweb(url: str):
+    if url == "nekoweb.org":
+        return True
+    
     cur.execute("select * from `notNekoweb` where url=?", (url,))
-    return cur.fetchone() is not None
+    return cur.fetchone() is None
 
 
 async def index_page(url: str):
@@ -132,6 +135,7 @@ async def index_page(url: str):
             return
 
     else:
+        print("db_is_nekoweb", parsed_url.netloc, db_is_nekoweb(parsed_url.netloc))
         if not db_is_nekoweb(parsed_url.netloc):
             logger.warning("Skipping %s as it's already confirmed to not be nekoweb" % url)
             return
@@ -155,7 +159,7 @@ async def index_page(url: str):
 
             soup = BeautifulSoup(text, 'html.parser')
 
-            logger.info("Indexing page %s" % parsed_url.path)
+            logger.info("Indexing page %s" % urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path, "", "", "")))
 
             links_to = []
             for link in soup.find_all('a'):
