@@ -135,7 +135,6 @@ async def index_page(url: str):
             return
 
     else:
-        print("db_is_nekoweb", parsed_url.netloc, db_is_nekoweb(parsed_url.netloc))
         if not db_is_nekoweb(parsed_url.netloc):
             logger.warning("Skipping %s as it's already confirmed to not be nekoweb" % url)
             return
@@ -151,7 +150,7 @@ async def index_page(url: str):
                     return
 
                 if "X-Powered-By" not in res.headers or res.headers["X-Powered-By"] != "Nekoweb":
-                    logger.warning("Skipping %s as it's a Nekoweb site" % url)
+                    logger.warning("Skipping %s as it's not a Nekoweb site" % url)
                     db_add_to_not_nekoweb(parsed_url.netloc)
                     return
 
