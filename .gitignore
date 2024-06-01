@@ -2,9 +2,10 @@
 # Index files
 index.json
 new_index.json
+web_list.json
 
 # Logs
-logs.log
+*.log
 
 # Other
 /.venv/
