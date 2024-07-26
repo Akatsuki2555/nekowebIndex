@@ -31,6 +31,8 @@ log_file.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
 logger.addHandler(log_file)
 
+robots_file_cache = []
+
 
 class RobotsParser:
     def __init__(self, robots_url: str):
@@ -39,12 +41,25 @@ class RobotsParser:
 
     def parse_file_or_url(self, robots_url):
         """Parses the robots.txt file or fetches it from a URL and stores the rules."""
+
+        global content
         try:
-            response = requests.get(robots_url)
-            if response.status_code == 200:
-                content = response.text
+            if robots_url in [x['url'] for x in robots_file_cache]:
+                for entry in robots_file_cache:
+                    if entry['url'] == robots_url:
+                        content = entry['content']
+                        break
             else:
-                content = ""  # Treat as empty file
+                response = requests.get(robots_url, timeout=5)
+                if response.status_code == 200:
+                    content = response.text
+                else:
+                    content = ""  # Treat as empty file
+
+                robots_file_cache.append({
+                    'url': robots_url,
+                    'content': content
+                })
 
             current_useragent = None
             for line in content.splitlines():
@@ -73,32 +88,10 @@ class RobotsParser:
         return True
 
 
-async def check_if_exists(url):
-    async with aiohttp.ClientSession() as session:
-        session.headers.add("User-Agent", "AkatsukiNekowebBot")
-        async with session.get(url) as res:
-            return res.ok
-
-
-async def check_if_robots_txt_exists(url):
-    parsed_url = parse.urlparse(url)
-    parsed_url = parse.urlunparse(("https", parsed_url.netloc, "robots.txt", "", "", ""))
-    async with aiohttp.ClientSession() as session:
-        session.headers.add("User-Agent", "AkatsukiNekowebBot")
-        async with session.get(parsed_url) as res:
-            return res.ok
-
-
 async def check_robots(url):
     logger.debug("Checking %s", url)
     url_parsed = parse.urlparse(url)
     url_parsed_robots = parse.urlunparse(("https", url_parsed.netloc, "robots.txt", "", "", ""))
-    if not await check_if_exists(url_parsed_robots):
-        logger.debug("Page %s doesn't exist", url)
-        return True
-    if not await check_if_robots_txt_exists(url):
-        logger.debug("Page %s doesn't have a robots.txt file", url)
-        return True
     rp = RobotsParser(url_parsed_robots)
     logger.debug("Checking AkatsukiNekowebBot for robots.txt %s for path %s", url_parsed_robots, url_parsed.path)
     can = rp.is_allowed("AkatsukiNekowebBot", url_parsed.path)
