@@ -17,8 +17,8 @@
 import asyncio
 import logging
 from urllib import parse
-import robots
 import aiohttp
+import requests
 
 logger = logging.getLogger("Akatsuki_Robots")
 logger.setLevel(logging.DEBUG)
@@ -30,6 +30,48 @@ log_console.setLevel(logging.INFO)
 log_file.setLevel(logging.DEBUG)
 logger.addHandler(log_console)
 logger.addHandler(log_file)
+
+
+class RobotsParser:
+    def __init__(self, robots_url: str):
+        self.rules = {}
+        self.parse_file_or_url(robots_url)
+
+    def parse_file_or_url(self, robots_url):
+        """Parses the robots.txt file or fetches it from a URL and stores the rules."""
+        try:
+            response = requests.get(robots_url)
+            if response.status_code == 200:
+                content = response.text
+            else:
+                content = ""  # Treat as empty file
+
+            current_useragent = None
+            for line in content.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                if line.startswith("User-agent:"):
+                    current_useragent = line.split(":")[1].strip()
+                    self.rules[current_useragent] = []
+                elif current_useragent and line.startswith("Disallow:"):
+                    disallow_path = line.split(":")[1].strip()
+                    self.rules[current_useragent].append(disallow_path)
+        except Exception as e:
+            print(f"Error parsing robots.txt: {e}")
+
+    def is_allowed(self, user_agent: str, check_url: str):
+        """Checks if a given URL is allowed for the specified user agent."""
+        if "*" in self.rules:
+            for path in self.rules["*"]:
+                if check_url.startswith(path):
+                    return False
+        if user_agent in self.rules:
+            for path in self.rules[user_agent]:
+                if check_url.startswith(path):
+                    return False
+        return True
+
 
 async def check_if_exists(url):
     async with aiohttp.ClientSession() as session:
@@ -46,6 +88,7 @@ async def check_if_robots_txt_exists(url):
         async with session.get(parsed_url) as res:
             return res.ok
 
+
 async def check_robots(url):
     logger.debug("Checking %s", url)
     url_parsed = parse.urlparse(url)
@@ -56,10 +99,9 @@ async def check_robots(url):
     if not await check_if_robots_txt_exists(url):
         logger.debug("Page %s doesn't have a robots.txt file", url)
         return True
-    rp = robots.RobotsParser.from_uri(url_parsed_robots)
-
+    rp = RobotsParser(url_parsed_robots)
     logger.debug("Checking AkatsukiNekowebBot for robots.txt %s for path %s", url_parsed_robots, url_parsed.path)
-    can = rp.can_fetch("AkatsukiNekowebBot", url_parsed.path)
+    can = rp.is_allowed("AkatsukiNekowebBot", url_parsed.path)
     logger.debug("%s for %s", str(can), url)
     return can
 
